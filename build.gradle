@@ -1,0 +1,120 @@
+//https://docs.gradle.org/current/userguide/userguide.html обращайте внимание на версию
+
+// все дочерние модули указаны в settings.gradle
+/*
+плагины gradle. Варианты подключения:
+ id 'plugin id'
+ id 'plugin id' version 'plugin version' [apply 'false'] // apply - использовать ли данный плагин
+*/
+plugins {
+    id 'java'
+    id 'application' // для запуска приложения через gradle
+    //    id "io.freefair.lombok" version "4.1.6" // https://projectlombok.org/
+}
+group 'com.lessons'
+version '1.0-SNAPSHOT'
+
+//sourceCompatibility = 1.8
+// настройки plugin java
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+
+}
+
+// настройки plugin application
+application {
+    mainClassName = 'cats.Application'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+
+repositories {
+    mavenCentral()
+}
+
+// зависимости проекта
+dependencies {
+// подключение: implementation / testImplementation
+//    https://junit.org/junit5/docs/current/user-guide
+    testImplementation('org.junit.jupiter:junit-jupiter:5.6.0')
+    testImplementation('org.mockito:mockito-junit-jupiter:3.2.4'){
+        because 'for unit tests'
+    }
+
+    implementation group: 'org.xerial', name: 'sqlite-jdbc', version: '3.30.1' // sqlite
+    implementation group: 'com.mchange', name: 'c3p0', version: '0.9.5.5' // c3p0
+
+//    implementation project(':other_module')
+
+// варианты определения версий
+/*
+    implementation 'org.springframework:spring-web:5.+' //  версия выше 5
+    implementation('org.slf4j:slf4j-api') {
+        version {
+            strictly '[1.7, 1.8['
+            prefer '1.7.25' // наиболее предпочтительная
+        }
+    }
+    constraints {
+        implementation('org.springframework:spring-core') {
+            version {
+                require '4.2.9.RELEASE' // версия не ниже указанной
+                reject '4.3.16.RELEASE' // версия исключается
+            }
+        }
+    }
+*/
+
+// подключение для более старых версий
+//    compile 'org.codehaus.groovy:groovy-all:2.3.11'
+//    testCompile group: 'junit', name: 'junit', version: '4.12'
+}
+
+// для изменяемых версий (версии указанные через + или SNAPSHOT)
+// можно указать время хранения библиотеки в кэше (24 часа по-умолчанию)
+configurations.all {
+    resolutionStrategy.cacheDynamicVersionsFor 30, 'minutes'
+}
+
+test {
+    useJUnitPlatform() // junit5 + junit vintage (для junit4 и junit3)
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
+
+// создание jar со всеми зависимостями
+task uberJar(type: Jar) {
+    // формирование имени jar файла
+//    [archiveBaseName]-[archiveAppendix]-[archiveVersion]-[archiveClassifier].[archiveExtension]
+    archiveFileName = 'cats-uber-1.1.jar'
+
+    manifest {
+        attributes 'Main-Class': application.mainClassName
+    }
+
+    from sourceSets.main.output
+
+    dependsOn configurations.runtimeClasspath
+    from {
+        configurations.runtimeClasspath.findAll { it.name.endsWith('jar') }.collect { zipTree(it) }
+    }
+
+    exclude(
+            'org.junit.jupiter:junit-jupiter:5.6.0',
+            'org.mockito:mockito-junit-jupiter:3.2.4'
+    )
+}
+
+// настройки javadoc task (генерация документации)
+javadoc {
+    options.encoding = 'UTF-8' // кодировка javadoc
+}
+
+wrapper() { // wrapper позволяет запускать gradle указанной версии для конкретного пректа без установки gradle
+    gradleVersion = '6.1.1' //если необходимо запустить проект под другой версией gradle, в данном случае 6.1.1 (см. /.gradle)
+}
